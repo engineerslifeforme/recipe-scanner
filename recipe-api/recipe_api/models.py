@@ -43,7 +43,7 @@ class DbItem(BaseModel):
             if answer is not None:
                 if raise_error_if_duplicate:
                     raise ValueError(f"{model_dump[unique_field]} not unique")
-                return answer
+                return answer["id"]
             
         self.id = get_next_id(con, self.table_name)
         fields = ["id"]
@@ -177,13 +177,16 @@ class Recipe(BaseModel):
         recipe_id = DbRecipe(**self.model_dump()).add_to_db(con, raise_error_if_duplicate=True)
         for ingredient in self.ingredients:
             ingredient_id = DbIngredient(**ingredient.model_dump()).add_to_db(con)
-            DbIngredientToRecipe(
-                recipe_id=recipe_id, 
-                ingredient_id=ingredient_id, 
-                optional=ingredient.optional, 
-                quantity=ingredient.quantity,
-                unit=ingredient.unit,
-            ).add_to_db(con)
+            try:
+                DbIngredientToRecipe(
+                    recipe_id=recipe_id, 
+                    ingredient_id=ingredient_id, 
+                    optional=ingredient.optional, 
+                    quantity=ingredient.quantity,
+                    unit=ingredient.unit,
+                ).add_to_db(con)
+            except:
+                import pdb;pdb.set_trace()
         for direction in self.directions:
             DbDirection(recipe_id=recipe_id, **direction.model_dump()).add_to_db(con)
         for tool in self.tools:
