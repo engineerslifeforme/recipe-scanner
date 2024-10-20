@@ -2,11 +2,12 @@ from pathlib import Path
 import re
 #import urllib
 import urllib.request
+import requests
 
 from bs4 import BeautifulSoup
 import yaml
 
-from models import Recipe, Direction, Ingredient
+from recipe_api.models import Recipe, Direction, Ingredient
 
 
 IMAGE_PATH = Path("images")
@@ -136,7 +137,10 @@ def get_recipe_image(soup, title: str) -> Path:
     image_div = soup.findAll("div", {"data-test-id" : "recipe-hero-image"})[0]
     return get_image(image_div.find("img"), title)
 
-def scrape_recipe(html_text: str) -> Path:
+def scrape_recipe_from_url(url: str) -> Path:
+    return scrape_recipe(requests.get(url).text, url=url)
+
+def scrape_recipe(html_text: str, url: str = None) -> Path:
     soup = BeautifulSoup(html_text, "html.parser")
     ingredient_list = scrape_ingredients(soup)
     description, title, times = get_description(soup)
@@ -152,6 +156,7 @@ def scrape_recipe(html_text: str) -> Path:
         description=description,
         tools=get_tools(soup),
         image_path=Path("..") / get_recipe_image(soup, title),
+        reference_url=url,
     ).model_dump()
     recipe_data["image_path"] = str(recipe_data["image_path"])
     for direction in recipe_data["directions"]:

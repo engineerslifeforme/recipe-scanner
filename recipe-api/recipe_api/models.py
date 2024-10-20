@@ -4,12 +4,12 @@ from typing import List, Optional, Literal, ClassVar
 from pydantic import BaseModel, field_serializer
 
 def get_next_id(con, table_name: str) -> int:
-    current_max = con.execute(f"SELECT MAX(id) FROM {table_name}").fetchone()[0]
-    # Returns None when table is empty
-    if current_max is None:
-        return 1
-    else:
+    try:
+        current_max = con.execute(f"SELECT MAX(id) FROM {table_name}").fetchone()[0]
         return current_max + 1
+    except KeyError:
+        # When table is empty
+        return 1        
     
 def prep_sql_value(value) -> str:
     if value is None:
@@ -172,7 +172,7 @@ class Recipe(BaseModel):
     def serialize_image_path(self, image_path: Path, _info):
         return str(image_path)
 
-    def add_to_db(self, con):
+    def add_to_db(self, con) -> int:
         recipe_id = DbRecipe(**self.model_dump()).add_to_db(con, raise_error_if_duplicate=True)
         for ingredient in self.ingredients:
             ingredient_id = DbIngredient(**ingredient.model_dump()).add_to_db(con)
@@ -182,6 +182,7 @@ class Recipe(BaseModel):
         for tool in self.tools:
             tool_id = DbTool(name=tool).add_to_db(con)
             DbToolMap(recipe_id=recipe_id, tool_id=tool_id).add_to_db(con)
+        return recipe_id
 
 if __name__ == "__main__":
     import sqlite3
