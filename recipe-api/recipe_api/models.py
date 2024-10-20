@@ -4,12 +4,11 @@ from typing import List, Optional, Literal, ClassVar
 from pydantic import BaseModel, field_serializer
 
 def get_next_id(con, table_name: str) -> int:
-    try:
-        current_max = con.execute(f"SELECT MAX(id) FROM {table_name}").fetchone()[0]
+    current_max = con.execute(f"SELECT MAX(id) FROM {table_name}").fetchone()["MAX(id)"]
+    if current_max is None:
+        return 0
+    else:
         return current_max + 1
-    except KeyError:
-        # When table is empty
-        return 1        
     
 def prep_sql_value(value) -> str:
     if value is None:
@@ -38,7 +37,7 @@ class DbItem(BaseModel):
 
     def add_to_db(self, con, raise_error_if_duplicate: bool = False) -> int:
         model_dump = self.model_dump()
-        
+        print(model_dump)
         for unique_field in self.unique_fields:
             answer = find(con, self.table_name, unique_field, model_dump[unique_field])
             if answer is not None:
@@ -101,6 +100,8 @@ class DbIngredientToRecipe(DbItem):
             ingredients.append(Ingredient(
                 optional=ir.optional,
                 **dbi.model_dump(),
+                quantity=ir.quantity,
+                unit=ir.unit,
             ))
         return ingredients
 
@@ -176,13 +177,22 @@ class Recipe(BaseModel):
         recipe_id = DbRecipe(**self.model_dump()).add_to_db(con, raise_error_if_duplicate=True)
         for ingredient in self.ingredients:
             ingredient_id = DbIngredient(**ingredient.model_dump()).add_to_db(con)
-            DbIngredientToRecipe(recipe_id=recipe_id, ingredient_id=ingredient_id, optional=ingredient.optional).add_to_db(con)
+            DbIngredientToRecipe(
+                recipe_id=recipe_id, 
+                ingredient_id=ingredient_id, 
+                optional=ingredient.optional, 
+                quantity=ingredient.quantity,
+                unit=ingredient.unit,
+            ).add_to_db(con)
         for direction in self.directions:
             DbDirection(recipe_id=recipe_id, **direction.model_dump()).add_to_db(con)
         for tool in self.tools:
             tool_id = DbTool(name=tool).add_to_db(con)
             DbToolMap(recipe_id=recipe_id, tool_id=tool_id).add_to_db(con)
         return recipe_id
+    
+def get_all_recipes(con) -> list:
+    return [Recipe.upgrade(con, r) for r in DbRecipe.get_all(con)]
 
 if __name__ == "__main__":
     import sqlite3

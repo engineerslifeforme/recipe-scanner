@@ -28,8 +28,7 @@ SQL_TYPE_MAP = {
 }
 SQL_TYPE_MAP.update({Optional[k]: v for k, v in SQL_TYPE_MAP.items()})
 
-if __name__ == "__main__":
-    create_path = Path("create.sql")
+def generate_create_statements() -> list:
     statements = []
     for model in MODELS:
         fields_and_types = []
@@ -41,4 +40,9 @@ if __name__ == "__main__":
         create_statement = f"CREATE TABLE {model.table_name} ({', '.join(fields_and_types)});"
         print(create_statement)
         statements.append(create_statement)
+    return statements
+
+if __name__ == "__main__":
+    create_path = Path("create.sql")
+    statements = generate_create_statements()
     create_path.write_text("\n".join(statements))
