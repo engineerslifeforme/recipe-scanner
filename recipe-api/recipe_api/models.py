@@ -14,6 +14,8 @@ def prep_sql_value(value) -> str:
     if value is None:
         return "null"
     elif type(value) == str:
+        # TODO: This is not ideal
+        value = value.replace("'", "")
         return f"'{value}'"
     elif type(value) in [int, float]:
         return str(value)
@@ -188,7 +190,10 @@ class Recipe(BaseModel):
             except:
                 import pdb;pdb.set_trace()
         for direction in self.directions:
-            DbDirection(recipe_id=recipe_id, **direction.model_dump()).add_to_db(con)
+            try:
+                DbDirection(recipe_id=recipe_id, **direction.model_dump()).add_to_db(con)
+            except:
+                import pdb;pdb.set_trace()
         for tool in self.tools:
             tool_id = DbTool(name=tool).add_to_db(con)
             DbToolMap(recipe_id=recipe_id, tool_id=tool_id).add_to_db(con)
